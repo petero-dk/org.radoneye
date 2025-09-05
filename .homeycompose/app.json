@@ -1,0 +1,41 @@
+{
+  "id": "org.radoneye",
+  "version": "1.0.0",
+  "compatibility": ">=12.4.0",
+  "sdk": 3,
+  "platforms": [
+    "local"
+  ],
+  "name": {
+    "en": "RadonEye"
+  },
+  "description": {
+    "en": "Real-time radon detection"
+  },
+  "category": [
+    "climate"
+  ],
+  "permissions": ["homey:wireless:ble"],
+  "images": {
+    "small": "/assets/images/small.png",
+    "large": "/assets/images/large.png",
+    "xlarge": "/assets/images/xlarge.png"
+  },
+  "author": {
+    "name": "Peter Obel"
+  },
+  "brandColor" : "#364734",
+  "contributing": {
+    "donate": {
+      "paypal": {
+        "username": "zealofzebras"
+      }
+    }
+  },
+  "bugs": {
+    "url": "https://github.com/petero-dk/org.radoneye/issues"
+  },
+  "source": "https://github.com/petero-dk/org.radoneye",
+  "support": "https://community.homey.app/t/app-pro-radoneye/142645",
+  "homeyCommunityTopicId": 142645
+}

@@ -1,0 +1,67 @@
+{
+  "_comment": "This file is generated. Please edit .homeycompose/app.json instead.",
+  "id": "org.radoneye",
+  "version": "1.0.0",
+  "compatibility": ">=12.4.0",
+  "sdk": 3,
+  "platforms": [
+    "local"
+  ],
+  "name": {
+    "en": "RadonEye"
+  },
+  "description": {
+    "en": "Real time radon detection"
+  },
+  "category": [
+    "climate"
+  ],
+  "permissions": [
+    "homey:wireless:ble"
+  ],
+  "images": {
+    "small": "/assets/images/small.png",
+    "large": "/assets/images/large.png",
+    "xlarge": "/assets/images/xlarge.png"
+  },
+  "author": {
+    "name": "Peter Obel",
+    "email": "peter@obel.org"
+  },
+  "drivers": [
+    {
+      "name": {
+        "en": "RadonEye RD200"
+      },
+      "class": "other",
+      "capabilities": [
+        "measure_radon"
+      ],
+      "platforms": [
+        "local"
+      ],
+      "connectivity": [
+        "ble"
+      ],
+      "pair": [
+        {
+          "id": "list_devices",
+          "template": "list_devices",
+          "navigation": {
+            "next": "add_devices"
+          }
+        },
+        {
+          "id": "add_devices",
+          "template": "add_devices"
+        }
+      ],
+      "images": {
+        "small": "/drivers/radoneye-rd200/assets/images/small.png",
+        "large": "/drivers/radoneye-rd200/assets/images/large.png",
+        "xlarge": "/drivers/radoneye-rd200/assets/images/xlarge.png"
+      },
+      "id": "radoneye-rd200"
+    }
+  ]
+}
