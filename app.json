@@ -11,7 +11,7 @@
     "en": "RadonEye"
   },
   "description": {
-    "en": "Real time radon detection"
+    "en": "Real-time radon detection"
   },
   "category": [
     "climate"
@@ -25,9 +25,22 @@
     "xlarge": "/assets/images/xlarge.png"
   },
   "author": {
-    "name": "Peter Obel",
-    "email": "peter@obel.org"
+    "name": "Peter Obel"
   },
+  "brandColor": "#364734",
+  "contributing": {
+    "donate": {
+      "paypal": {
+        "username": "zealofzebras"
+      }
+    }
+  },
+  "bugs": {
+    "url": "https://github.com/petero-dk/org.radoneye/issues"
+  },
+  "source": "https://github.com/petero-dk/org.radoneye",
+  "support": "https://community.homey.app/t/app-pro-radoneye/142645",
+  "homeyCommunityTopicId": 142645,
   "drivers": [
     {
       "name": {
