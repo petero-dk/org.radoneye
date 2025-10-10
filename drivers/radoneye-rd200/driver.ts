@@ -1,5 +1,5 @@
 import Homey from 'homey';
-import { SERVICE_UUID } from '../../lib/rd200';
+import { SERVICE_UUID_V1, SERVICE_UUID_V2 } from '../../lib/rd200';
 
 module.exports = class Rd200Driver extends Homey.Driver {
 
@@ -15,11 +15,18 @@ module.exports = class Rd200Driver extends Homey.Driver {
    * This should return an array with the data of devices that are available for pairing.
    */
   async onPairListDevices() {
-    const advertisements = await this.homey.ble.discover([SERVICE_UUID]);
-    //const advertisements = await this.homey.ble.discover();
-    this.log('Discovered devices:', advertisements);
-    return advertisements
-      //.filter(advertisement => advertisement.localName === 'my_device_name')
+    // Discover devices with both v1 and v2/v3 service UUIDs
+    const advertisementsV1 = await this.homey.ble.discover([SERVICE_UUID_V1]).catch(() => []);
+    const advertisementsV2 = await this.homey.ble.discover([SERVICE_UUID_V2]).catch(() => []);
+    
+    // Combine and deduplicate by UUID
+    const allAdvertisements = [...advertisementsV1, ...advertisementsV2];
+    const uniqueAdvertisements = allAdvertisements.filter((advertisement, index, self) => 
+      index === self.findIndex(a => a.uuid === advertisement.uuid)
+    );
+    
+    this.log('Discovered devices:', uniqueAdvertisements);
+    return uniqueAdvertisements
       .map(advertisement => {
         return {
           name: advertisement.localName,

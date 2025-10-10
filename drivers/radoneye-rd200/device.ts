@@ -7,6 +7,7 @@ module.exports = class Rd200Device extends Homey.Device {
   private advertisement?: BleAdvertisement;
   private onSyncInterval?: ReturnType<typeof setTimeout>;
   private operationInProgress: boolean = false;
+  private firmwareVersion: rd200.FirmwareVersion = rd200.FirmwareVersion.V1;
 
   /**
    * onInit is called when the device is initialized.
@@ -38,21 +39,46 @@ module.exports = class Rd200Device extends Homey.Device {
         return;
       }
 
+      let result: number;
 
-      await peripheral.write(rd200.SERVICE_UUID, rd200.TRIGGER_UID, Buffer.from(rd200.TRIGGER_DATA));
+      if (this.firmwareVersion === rd200.FirmwareVersion.V1) {
+        // V1 firmware: write trigger, read data
+        await peripheral.write(rd200.SERVICE_UUID_V1, rd200.TRIGGER_UID_V1, Buffer.from(rd200.TRIGGER_DATA_V1));
 
+        const data = await peripheral.read(rd200.SERVICE_UUID_V1, rd200.DATA_UUID_V1);
+        if (!data) {
+          this.error('No data received from device, will retry at next interval.');
+          return;
+        }
+        if (data.length != 20) {
+          this.error('Received data is invalid, will retry at next interval.');
+          return;
+        }
 
-      const data = await peripheral.read(rd200.SERVICE_UUID, rd200.DATA_UUID);
-      if (!data) {
-        this.error('No data received from device, will retry at next interval.');
-        return;
+        result = rd200.parseRadonValue(data, rd200.FirmwareVersion.V1);
+      } else {
+        // V2/V3 firmware: write command, read status
+        await peripheral.write(rd200.SERVICE_UUID_V2, rd200.COMMAND_UUID_V2, Buffer.from([rd200.COMMAND_STATUS_V2]));
+
+        const data = await peripheral.read(rd200.SERVICE_UUID_V2, rd200.STATUS_UUID_V2);
+        if (!data) {
+          this.error('No data received from device, will retry at next interval.');
+          return;
+        }
+
+        // Detect exact firmware version (v2 vs v3)
+        const detectedVersion = rd200.detectFirmwareVersion(data);
+        if (detectedVersion !== rd200.FirmwareVersion.V1) {
+          this.firmwareVersion = detectedVersion;
+          this.log(`Firmware version detected: v${detectedVersion}`);
+        }
+
+        result = rd200.parseRadonValue(data, this.firmwareVersion);
+        
+        // Optionally parse and log device info
+        const deviceInfo = rd200.parseDeviceInfo(data, this.firmwareVersion);
+        this.log(`Device: ${deviceInfo.model}, Serial: ${deviceInfo.serial}`);
       }
-      if (data.length != 20) {
-        this.error('Received data is invalid, will retry at next interval.');
-        return;
-      }
-
-      var result = data.readFloatLE(2) * 37;
 
       await this.setCapabilityValue('measure_radon', result);
       this.log('Sync operation completed successfully.');
@@ -144,7 +170,22 @@ module.exports = class Rd200Device extends Homey.Device {
       const peripheral: BlePeripheral = await this.advertisement.connect();
       await peripheral.assertConnected();
       this.log('Peripheral connected');
-      const { pin } = this.getData();
+      
+      // Detect firmware version by checking which service is available
+      const services = await peripheral.discoverAllServicesAndCharacteristics();
+      const hasV2Service = services.some(s => s.uuid === rd200.SERVICE_UUID_V2);
+      const hasV1Service = services.some(s => s.uuid === rd200.SERVICE_UUID_V1);
+      
+      if (hasV2Service) {
+        this.log('Detected v2/v3 firmware');
+        this.firmwareVersion = rd200.FirmwareVersion.V2; // Will be refined to V3 after reading data
+      } else if (hasV1Service) {
+        this.log('Detected v1 firmware');
+        this.firmwareVersion = rd200.FirmwareVersion.V1;
+      } else {
+        this.error('Unknown firmware version - no matching service UUID found');
+      }
+      
       return peripheral;
     } catch (error) {
       this.error(`Failed to connect to device: ${error instanceof Error ? error.message : String(error)}`);
