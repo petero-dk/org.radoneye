@@ -1,6 +1,6 @@
 {
   "id": "org.radoneye",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "compatibility": ">=12.4.0",
   "sdk": 3,
   "platforms": [
@@ -15,7 +15,9 @@
   "category": [
     "climate"
   ],
-  "permissions": ["homey:wireless:ble"],
+  "permissions": [
+    "homey:wireless:ble"
+  ],
   "images": {
     "small": "/assets/images/small.png",
     "large": "/assets/images/large.png",
@@ -24,7 +26,7 @@
   "author": {
     "name": "Peter Obel"
   },
-  "brandColor" : "#364734",
+  "brandColor": "#364734",
   "contributing": {
     "donate": {
       "paypal": {
