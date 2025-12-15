@@ -4,5 +4,8 @@
   },
   "1.1.0": {
     "en": "Added experimental support for RadonEye hardware V2 and V3"
+  },
+  "1.1.1": {
+    "en": "Bug fix for V2 and V3 of RadonEye"
   }
 }
