@@ -55,9 +55,22 @@ module.exports = class Rd200Device extends Homey.Device {
             
             result = rd200.parseRadonValue(data, this.firmwareVersion);
             
-            // Optionally parse and log device info
+            // Parse and log device info
             const deviceInfo = rd200.parseDeviceInfo(data, this.firmwareVersion);
             this.log(`Device: ${deviceInfo.model}, Serial: ${deviceInfo.serial}`);
+            
+            // Parse extended V2/V3 fields for validation and logging
+            const extendedData = rd200.parseExtendedV2V3Fields(data);
+            this.log(`Radon - Current: ${result} Bq/m³, 24h Avg: ${extendedData.radon24hAvg}, 1-Month Avg: ${extendedData.radon1MonthAvg}, Peak: ${extendedData.peakRadon}`);
+            this.log(`Uptime: ${extendedData.uptimeHours}h ${extendedData.uptimeMinutes}m ${extendedData.uptimeSeconds}s`);
+            
+            if (extendedData.pulseCounterCurrent !== undefined) {
+              this.log(`Pulse Counter - Current: ${extendedData.pulseCounterCurrent}, 10-min interval: ${extendedData.pulse10minInterval}`);
+            }
+            
+            if (extendedData.firmwareVersion) {
+              this.log(`Firmware Version: ${extendedData.firmwareVersion}`);
+            }
           }
         }
       } catch (v2Error) {
