@@ -32,21 +32,42 @@ export enum FirmwareVersion {
  * V1: ~20 bytes with float value
  * V2/V3: ~30+ bytes with additional fields (pulse counters, detailed uptime)
  * @param data Buffer containing status response
+ * @param deviceName Optional device name from BLE advertisement for more reliable detection
  * @returns FirmwareVersion enum value
  */
-export function detectFirmwareVersion(data: Buffer): FirmwareVersion {
+export function detectFirmwareVersion(data: Buffer, deviceName?: string): FirmwareVersion {
+  // PRIORITY 1: Device Name Parsing (most reliable)
+  // V3.0.1 devices have 'RE' or 'RU' in their names
+  if (deviceName) {
+    if (deviceName.includes('RE') || deviceName.includes('RU')) {
+      return FirmwareVersion.V3;
+    }
+  }
+  
+  // PRIORITY 2: Packet Length + Header Bytes
+  // V3.0.1 Live-Data packets are 32 bytes with specific header
+  if (data.length === 32 && data[0] === 0xAA && data[1] === 0x02) {
+    return FirmwareVersion.V3; // V3 Live-Data Header
+  }
+  
+  // Existing logic as fallback for status responses
+  if (data.length >= 15 && data[15] === 0x06) {
+    return FirmwareVersion.V2;
+  }
+  if (data.length >= 15 && data[14] === 0x07) {
+    return FirmwareVersion.V3;
+  }
+  
   // V1 is specifically 20 bytes
   if (data.length === 20) {
     return FirmwareVersion.V1;
   }
-  // V2/V3 are 30+ bytes. Differentiate by checking for firmware version field
-  // V2 has firmware version at a different position than V3
+  
+  // V2/V3 are 30+ bytes
   if (data.length >= 30) {
-    // Check if V3 by looking for firmware version string pattern (if available)
-    // V3 typically has version info at different offset, but for now we'll treat
-    // both as V2 and the driver can handle both with same parsing
     return FirmwareVersion.V2;
   }
+  
   // Default to V1
   return FirmwareVersion.V1;
 }
@@ -54,7 +75,8 @@ export function detectFirmwareVersion(data: Buffer): FirmwareVersion {
 /**
  * Parse radon value from data based on firmware version
  * V1: float at position 2, multiply by 37 to get Bq/m³
- * V2/V3: uint16 at position 0-1 (little-endian) containing radon current in Bq/m³
+ * V2: uint16 at position 0-1 (little-endian) containing radon current in Bq/m³
+ * V3: uint16 at position 14-15 (little-endian) containing radon current in Bq/m³
  * @param data Buffer containing the data response
  * @param version FirmwareVersion enum value
  * @returns Radon value in Bq/m³
@@ -63,9 +85,12 @@ export function parseRadonValue(data: Buffer, version: FirmwareVersion): number 
   if (version === FirmwareVersion.V1) {
     // V1: float at position 2, multiply by 37
     return data.readFloatLE(2) * 37;
-  } else if (version === FirmwareVersion.V2 || version === FirmwareVersion.V3) {
-    // V2/V3: uint16 at position 0-1 (radon current)
+  } else if (version === FirmwareVersion.V2) {
+    // V2: uint16 at position 0-1 (radon current)
     return data.readUInt16LE(0);
+  } else if (version === FirmwareVersion.V3) {
+    // V3.0.1: uint16 at position 14-15 (radon current) - CRITICAL FIX!
+    return data.readUInt16LE(14);
   }
   throw new Error(`Unsupported firmware version: ${version}`);
 }
@@ -93,8 +118,18 @@ export function parseDeviceInfo(data: Buffer, version: FirmwareVersion): { seria
   let serial = 'unknown';
   let model = 'unknown';
 
-  if (version === FirmwareVersion.V2 || version === FirmwareVersion.V3) {
-    // V2/V3: Parse from data packet
+  if (version === FirmwareVersion.V3) {
+    // V3: Serial at 2-13, Model at 16-22 (corrected positions)
+    try {
+      serial = readString(data, 2, 12).replace(/\0/g, '');
+      model = readString(data, 16, 7).replace(/\0/g, ''); // Position corrected
+    } catch (e) {
+      // Fall back to unknown if parsing fails
+      serial = 'unknown';
+      model = 'unknown';
+    }
+  } else if (version === FirmwareVersion.V2) {
+    // V2: Parse from data packet
     // Serial: typically stored as ASCII string in the packet
     // Model: typically stored as ASCII string in the packet
     // Note: exact positions may vary based on actual packet structure
