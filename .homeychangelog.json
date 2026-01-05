@@ -7,5 +7,8 @@
   },
   "1.1.1": {
     "en": "Bug fix for V2 and V3 of RadonEye"
+  },
+  "1.1.2": {
+    "en": "New firmware detection logic"
   }
 }
