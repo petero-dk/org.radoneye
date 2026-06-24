@@ -10,5 +10,8 @@
   },
   "1.1.2": {
     "en": "New firmware detection logic"
+  },
+  "2.0.0": {
+    "en": "Fixed firmware v2 and v3 reading"
   }
 }
