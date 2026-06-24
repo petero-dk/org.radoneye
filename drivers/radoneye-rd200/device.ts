@@ -1,8 +1,25 @@
 import Homey, { BleAdvertisement, BlePeripheral } from 'homey';
 import * as rd200 from '../../lib/rd200';
+import {
+  DATA_UUID_V1,
+  parseRadonValueV1,
+  SERVICE_UUID_V1,
+  TRIGGER_DATA_V1,
+  TRIGGER_UID_V1,
+} from '../../lib/rd200-v1';
+import {
+  COMMAND_STATUS_V2,
+  COMMAND_UUID_V2,
+  parseExtendedV2V3Fields,
+  parseRadonValueV2V3,
+  SERVICE_UUID_V2,
+  STATUS_UUID_V2,
+  parseDeviceInfoV2V3,
+} from '../../lib/rd200-v2';
 
 module.exports = class Rd200Device extends Homey.Device {
   private static SYNC_INTERVAL: number = 1000 * 60 * 5; // 5 minutes
+  private static ENABLE_TEMP_RAW_LOGS: boolean = false;
 
   private advertisement?: BleAdvertisement;
   private onSyncInterval?: ReturnType<typeof setTimeout>;
@@ -43,29 +60,31 @@ module.exports = class Rd200Device extends Homey.Device {
 
       // Try v2/v3 firmware first
       try {
-        await peripheral.write(rd200.SERVICE_UUID_V2, rd200.COMMAND_UUID_V2, Buffer.from([rd200.COMMAND_STATUS_V2]));
-
-        const data = await peripheral.read(rd200.SERVICE_UUID_V2, rd200.STATUS_UUID_V2);
+        const data = await this.readV2StatusViaNotification(peripheral);
         if (data) {
+          if (Rd200Device.ENABLE_TEMP_RAW_LOGS) {
+            this.log(`TEMP RAW V2/V3 payload (${data.length} bytes): ${data.toString('hex')}`);
+          }
+
           // Detect exact firmware version (v2 vs v3)
           const detectedVersion = rd200.detectFirmwareVersion(data);
           if (detectedVersion !== rd200.FirmwareVersion.V1) {
             this.firmwareVersion = detectedVersion;
             this.log(`Firmware version detected: v${detectedVersion}`);
             
-            result = rd200.parseRadonValue(data, this.firmwareVersion);
+            result = parseRadonValueV2V3(data, this.firmwareVersion === rd200.FirmwareVersion.V3);
             
             // Parse and log device info
-            const deviceInfo = rd200.parseDeviceInfo(data, this.firmwareVersion);
+            const deviceInfo = parseDeviceInfoV2V3(data, this.firmwareVersion === rd200.FirmwareVersion.V3);
             this.log(`Device: ${deviceInfo.model}, Serial: ${deviceInfo.serial}`);
             
             // Parse extended V2/V3 fields for validation and logging
-            const extendedData = rd200.parseExtendedV2V3Fields(data);
-            this.log(`Radon - Current: ${result} Bq/m³, 24h Avg: ${extendedData.radon24hAvg}, 1-Month Avg: ${extendedData.radon1MonthAvg}, Peak: ${extendedData.peakRadon}`);
+            const extendedData = parseExtendedV2V3Fields(data);
+            this.log(`Radon - Current: ${result} Bq/m3, Day Avg: ${extendedData.dayAvgRadon}, Month Avg: ${extendedData.monthAvgRadon}, Peak: ${extendedData.peakRadon}`);
             this.log(`Uptime: ${extendedData.uptimeHours}h ${extendedData.uptimeMinutes}m ${extendedData.uptimeSeconds}s`);
             
-            if (extendedData.pulseCounterCurrent !== undefined) {
-              this.log(`Pulse Counter - Current: ${extendedData.pulseCounterCurrent}, 10-min interval: ${extendedData.pulse10minInterval}`);
+            if (extendedData.particleCountCurrent !== undefined) {
+              this.log(`Particle Counter - Current: ${extendedData.particleCountCurrent}, Previous: ${extendedData.particleCountPrevious}`);
             }
             
             if (extendedData.firmwareVersion) {
@@ -80,9 +99,9 @@ module.exports = class Rd200Device extends Homey.Device {
       // If v2/v3 didn't work, try v1 firmware
       if (result === null) {
         try {
-          await peripheral.write(rd200.SERVICE_UUID_V1, rd200.TRIGGER_UID_V1, Buffer.from(rd200.TRIGGER_DATA_V1));
+          await peripheral.write(SERVICE_UUID_V1, TRIGGER_UID_V1, Buffer.from(TRIGGER_DATA_V1));
 
-          const data = await peripheral.read(rd200.SERVICE_UUID_V1, rd200.DATA_UUID_V1);
+          const data = await peripheral.read(SERVICE_UUID_V1, DATA_UUID_V1);
           if (!data) {
             this.error('No data received from device, will retry at next interval.');
             return;
@@ -92,9 +111,13 @@ module.exports = class Rd200Device extends Homey.Device {
             return;
           }
 
+          if (Rd200Device.ENABLE_TEMP_RAW_LOGS) {
+            this.log(`TEMP RAW V1 payload (${data.length} bytes): ${data.toString('hex')}`);
+          }
+
           this.firmwareVersion = rd200.FirmwareVersion.V1;
           this.log('Firmware version detected: v1');
-          result = rd200.parseRadonValue(data, rd200.FirmwareVersion.V1);
+          result = parseRadonValueV1(data);
         } catch (v1Error) {
           this.error(`Failed to read from both V1 and V2/V3 firmware: ${v1Error instanceof Error ? v1Error.message : String(v1Error)}`);
           return;
@@ -194,6 +217,9 @@ module.exports = class Rd200Device extends Homey.Device {
       this.log('Connecting to the device...');
       const peripheral: BlePeripheral = await this.advertisement.connect();
       await peripheral.assertConnected();
+      this.log('Discovering services and characteristics...');
+      const services = await peripheral.discoverAllServicesAndCharacteristics();
+      this.log(`Discovered ${services.length} service(s): ${services.map(s => s.uuid).join(', ')}`);
       this.log('Peripheral connected');
       
       return peripheral;
@@ -210,6 +236,82 @@ module.exports = class Rd200Device extends Homey.Device {
       peripheral.disconnect();
     } catch (error) {
       this.error(`Error disconnecting from the device: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  private normalizeUuid(uuid: string): string {
+    return uuid.replace(/-/g, '').toLowerCase();
+  }
+
+  private async getCharacteristicByUuid(
+    peripheral: BlePeripheral,
+    serviceUuid: string,
+    characteristicUuid: string,
+  ) {
+    const normalizedServiceUuid = this.normalizeUuid(serviceUuid);
+    const normalizedCharacteristicUuid = this.normalizeUuid(characteristicUuid);
+
+    const service = peripheral.services.find(candidate =>
+      this.normalizeUuid(candidate.uuid) === normalizedServiceUuid
+    );
+
+    if (!service) {
+      throw new Error(
+        `No service found with UUID ${serviceUuid}. Available: ${peripheral.services.map(s => s.uuid).join(', ')}`
+      );
+    }
+
+    const characteristic = service.characteristics.find(candidate =>
+      this.normalizeUuid(candidate.uuid) === normalizedCharacteristicUuid
+    );
+
+    if (!characteristic) {
+      throw new Error(
+        `No characteristic found with UUID ${characteristicUuid} on service ${service.uuid}. Available: ${service.characteristics.map(c => c.uuid).join(', ')}`
+      );
+    }
+
+    return characteristic;
+  }
+
+  private async readV2StatusViaNotification(peripheral: BlePeripheral): Promise<Buffer> {
+    const statusCharacteristic = await this.getCharacteristicByUuid(peripheral, SERVICE_UUID_V2, STATUS_UUID_V2);
+    const commandCharacteristic = await this.getCharacteristicByUuid(peripheral, SERVICE_UUID_V2, COMMAND_UUID_V2);
+
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+    let resolveData: (data: Buffer) => void;
+    let rejectData: (err: Error) => void;
+
+    const dataPromise = new Promise<Buffer>((resolve, reject) => {
+      resolveData = resolve;
+      rejectData = reject;
+    });
+
+    try {
+      // Await subscription so it is fully established before writing the command.
+      await statusCharacteristic.subscribeToNotifications((data: Buffer) => {
+        if (data.length > 0 && data[0] === COMMAND_STATUS_V2) {
+          resolveData(data);
+        }
+      });
+
+      timeoutHandle = setTimeout(
+        () => rejectData(new Error('Timed out waiting for V2/V3 status notification.')),
+        5000
+      );
+
+      await commandCharacteristic.write(Buffer.from([COMMAND_STATUS_V2]));
+      return await dataPromise;
+    } finally {
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
+
+      try {
+        await statusCharacteristic.unsubscribeFromNotifications();
+      } catch (error) {
+        this.log(`Failed to unsubscribe status notifications: ${error instanceof Error ? error.message : String(error)}`);
+      }
     }
   }
 

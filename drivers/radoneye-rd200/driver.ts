@@ -1,5 +1,7 @@
 import Homey from 'homey';
-import { SERVICE_UUID_V1, SERVICE_UUID_V2 } from '../../lib/rd200';
+
+// All RadonEye RD200 generations advertise with this name prefix.
+const RADONEYE_NAME_PREFIX = 'FR:';
 
 module.exports = class Rd200Driver extends Homey.Driver {
 
@@ -15,29 +17,29 @@ module.exports = class Rd200Driver extends Homey.Driver {
    * This should return an array with the data of devices that are available for pairing.
    */
   async onPairListDevices() {
-    // Discover devices with both v1 and v2/v3 service UUIDs
-    const advertisementsV1 = await this.homey.ble.discover([SERVICE_UUID_V1]).catch(() => []);
-    const advertisementsV2 = await this.homey.ble.discover([SERVICE_UUID_V2]).catch(() => []);
-    
-    // Combine and deduplicate by UUID
-    const allAdvertisements = [...advertisementsV1, ...advertisementsV2];
-    const uniqueAdvertisements = allAdvertisements.filter((advertisement, index, self) => 
-      index === self.findIndex(a => a.uuid === advertisement.uuid)
-    );
-    
-    this.log('Discovered devices:', uniqueAdvertisements);
-    return uniqueAdvertisements
-      .map(advertisement => {
-        return {
-          name: advertisement.localName,
-          data: {
-            id: advertisement.uuid,
-          },
-          store: {
-            peripheralUuid: advertisement.uuid,
-          }
-        };
-      });
+    // Discover all nearby BLE devices and filter by the known RadonEye name
+    // prefix. V2/V3 firmware does not include the GATT service UUID in its
+    // advertisement packet, so filtering by service UUID misses them.
+    const advertisements = await this.homey.ble.discover([]).catch(() => []);
+
+    this.log(`BLE scan found ${advertisements.length} total devices`);
+
+    const matched = advertisements.filter(advertisement => {
+      const name = advertisement.localName ?? '';
+      return name.startsWith(RADONEYE_NAME_PREFIX);
+    });
+
+    this.log(`Discovered ${matched.length} RadonEye device(s)`);
+
+    return matched.map(advertisement => ({
+      name: advertisement.localName ?? advertisement.uuid,
+      data: {
+        id: advertisement.uuid,
+      },
+      store: {
+        peripheralUuid: advertisement.uuid,
+      },
+    }));
   }
 
 };

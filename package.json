@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "scripts": {
     "build": "tsc",
-    "lint": "eslint --ext .js,.ts --ignore-path .gitignore ."
+    "lint": "eslint --ext .js,.ts --ignore-path .gitignore .",
+    "test:device": "python tools/rd200-device-test.py",
+    "test:device:parse": "node tools/rd200-parse.js"
   },
   "devDependencies": {
     "@tsconfig/node16": "^16.1.4",
@@ -12,5 +14,8 @@
     "eslint": "^7.32.0",
     "eslint-config-athom": "^3.1.5",
     "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@img/sharp-wasm32": "^0.35.2"
   }
 }
