@@ -13,5 +13,8 @@
   },
   "2.0.0": {
     "en": "Fixed firmware v2 and v3 reading"
+  },
+  "2.0.1": {
+    "en": "Fix crash for offline devices"
   }
 }
