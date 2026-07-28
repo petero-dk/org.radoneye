@@ -4,7 +4,7 @@ import {
   SERVICE_UUID_V1,
   TRIGGER_DATA_V1,
   TRIGGER_UID_V1,
-} from './rd200-v1';
+} from './rd200-v1.ts';
 import {
   COMMAND_STATUS_V2,
   COMMAND_UUID_V2,
@@ -14,7 +14,7 @@ import {
   SERVICE_UUID_V2,
   STATUS_UUID_V2,
   V2V3ExtendedData,
-} from './rd200-v2';
+} from './rd200-v2.ts';
 
 export {
   DATA_UUID_V1,
@@ -35,9 +35,9 @@ export const TRIGGER_UID = TRIGGER_UID_V1;
 export const DATA_UUID = DATA_UUID_V1;
 export const TRIGGER_DATA = TRIGGER_DATA_V1;
 
-export const RADONEYE_BLUETOOTH_COMPANY_ID = "f24be3";
+export const RADONEYE_BLUETOOTH_COMPANY_ID = 'f24be3';
 
-export const RD200 = "R20"; // RadonEye First Generation BLE
+export const RD200 = 'R20'; // RadonEye First Generation BLE
 
 export enum FirmwareVersion {
   V1 = 1,
@@ -69,12 +69,12 @@ export function detectFirmwareVersion(data: Buffer, deviceName?: string): Firmwa
       return FirmwareVersion.V3;
     }
   }
-  
+
   // V1 is specifically 20 bytes
   if (data.length === 20) {
     return FirmwareVersion.V1;
   }
-  
+
   // Default to V1
   return FirmwareVersion.V1;
 }
@@ -91,9 +91,11 @@ export function detectFirmwareVersion(data: Buffer, deviceName?: string): Firmwa
 export function parseRadonValue(data: Buffer, version: FirmwareVersion): number {
   if (version === FirmwareVersion.V1) {
     return parseRadonValueV1(data);
-  } else if (version === FirmwareVersion.V2) {
+  }
+  if (version === FirmwareVersion.V2) {
     return parseRadonValueV2V3(data, false);
-  } else if (version === FirmwareVersion.V3) {
+  }
+  if (version === FirmwareVersion.V3) {
     return parseRadonValueV2V3(data, true);
   }
   throw new Error(`Unsupported firmware version: ${version}`);

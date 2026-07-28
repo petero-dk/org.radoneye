@@ -1,3 +1,7 @@
 {
-  "extends": "athom/homey-app"
+  "extends": "athom/homey-app",
+  "rules": {
+    "linebreak-style": "off",
+    "@typescript-eslint/no-floating-promises": "off"
+  }
 }

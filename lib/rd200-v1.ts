@@ -1,6 +1,6 @@
-export const SERVICE_UUID_V1 = "000015231212efde1523785feabcd123";
-export const TRIGGER_UID_V1 = "000015241212efde1523785feabcd123";
-export const DATA_UUID_V1 = "000015251212efde1523785feabcd123";
+export const SERVICE_UUID_V1 = '000015231212efde1523785feabcd123';
+export const TRIGGER_UID_V1 = '000015241212efde1523785feabcd123';
+export const DATA_UUID_V1 = '000015251212efde1523785feabcd123';
 export const TRIGGER_DATA_V1: number[] = [0x50];
 
 /**

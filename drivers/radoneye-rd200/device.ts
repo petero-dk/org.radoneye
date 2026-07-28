@@ -1,12 +1,12 @@
 import Homey, { BleAdvertisement, BlePeripheral } from 'homey';
-import * as rd200 from '../../lib/rd200';
+import * as rd200 from '../../lib/rd200.ts';
 import {
   DATA_UUID_V1,
   parseRadonValueV1,
   SERVICE_UUID_V1,
   TRIGGER_DATA_V1,
   TRIGGER_UID_V1,
-} from '../../lib/rd200-v1';
+} from '../../lib/rd200-v1.ts';
 import {
   COMMAND_STATUS_V2,
   COMMAND_UUID_V2,
@@ -15,7 +15,7 @@ import {
   SERVICE_UUID_V2,
   STATUS_UUID_V2,
   parseDeviceInfoV2V3,
-} from '../../lib/rd200-v2';
+} from '../../lib/rd200-v2.ts';
 
 module.exports = class Rd200Device extends Homey.Device {
   private static SYNC_INTERVAL: number = 1000 * 60 * 5; // 5 minutes
@@ -31,10 +31,18 @@ module.exports = class Rd200Device extends Homey.Device {
    */
   async onInit() {
     this.log('Rd200Device has been initialized');
-    this.onSyncInterval = setInterval(() => this.onSync(), Rd200Device.SYNC_INTERVAL);
-    this.onSync();
+    this.onSyncInterval = setInterval(
+      () => {
+        this.onSync().catch((err: Error) => {
+          this.error(`onSync failed: ${err.message}`);
+        });
+      },
+      Rd200Device.SYNC_INTERVAL,
+    );
+    this.onSync().catch((err: Error) => {
+      this.error(`Initial onSync failed: ${err.message}`);
+    });
   }
-
 
   async onSync(): Promise<void> {
     if (this.operationInProgress) {
@@ -44,11 +52,10 @@ module.exports = class Rd200Device extends Homey.Device {
     this.log('Starting sync operation...');
 
     this.operationInProgress = true;
-    const { firstRun, mode } = this.getStore();
-
 
     this.advertisement = await this.findAdvertisement();
     let peripheral: BlePeripheral | undefined;
+    let syncSucceeded = false;
     try {
       peripheral = await this.connectToDevice();
       if (!peripheral) {
@@ -71,22 +78,22 @@ module.exports = class Rd200Device extends Homey.Device {
           if (detectedVersion !== rd200.FirmwareVersion.V1) {
             this.firmwareVersion = detectedVersion;
             this.log(`Firmware version detected: v${detectedVersion}`);
-            
+
             result = parseRadonValueV2V3(data, this.firmwareVersion === rd200.FirmwareVersion.V3);
-            
+
             // Parse and log device info
             const deviceInfo = parseDeviceInfoV2V3(data, this.firmwareVersion === rd200.FirmwareVersion.V3);
             this.log(`Device: ${deviceInfo.model}, Serial: ${deviceInfo.serial}`);
-            
+
             // Parse extended V2/V3 fields for validation and logging
             const extendedData = parseExtendedV2V3Fields(data);
             this.log(`Radon - Current: ${result} Bq/m3, Day Avg: ${extendedData.dayAvgRadon}, Month Avg: ${extendedData.monthAvgRadon}, Peak: ${extendedData.peakRadon}`);
             this.log(`Uptime: ${extendedData.uptimeHours}h ${extendedData.uptimeMinutes}m ${extendedData.uptimeSeconds}s`);
-            
+
             if (extendedData.particleCountCurrent !== undefined) {
               this.log(`Particle Counter - Current: ${extendedData.particleCountCurrent}, Previous: ${extendedData.particleCountPrevious}`);
             }
-            
+
             if (extendedData.firmwareVersion) {
               this.log(`Firmware Version: ${extendedData.firmwareVersion}`);
             }
@@ -106,7 +113,7 @@ module.exports = class Rd200Device extends Homey.Device {
             this.error('No data received from device, will retry at next interval.');
             return;
           }
-          if (data.length != 20) {
+          if (data.length !== 20) {
             this.error('Received data is invalid, will retry at next interval.');
             return;
           }
@@ -127,6 +134,11 @@ module.exports = class Rd200Device extends Homey.Device {
       if (result !== null) {
         await this.setCapabilityValue('measure_radon', result);
         this.log('Sync operation completed successfully.');
+        syncSucceeded = true;
+        // Mark device as available on successful sync
+        await this.setAvailable().catch((err) => {
+          this.error(`Error marking device available: ${err.message}`);
+        });
       } else {
         this.error('Failed to read radon value from device.');
       }
@@ -134,7 +146,22 @@ module.exports = class Rd200Device extends Homey.Device {
       this.error(`Error during onSync operation: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       if (peripheral) {
-        this.disconnectFromDevice(peripheral);
+        try {
+          this.disconnectFromDevice(peripheral);
+        } catch (disconnectError) {
+          // Handle disconnect errors (e.g., peripheral already disconnected)
+          const errorMsg = disconnectError instanceof Error ? disconnectError.message : String(disconnectError);
+          this.log(`Error during disconnect: ${errorMsg}`);
+
+          // Only mark as unavailable if sync actually failed
+          if (!syncSucceeded && errorMsg.includes('Peripheral Not Found')) {
+            this.error('Device disconnected unexpectedly, marking as offline.');
+            const unavailablePromise = this.setUnavailable('Device disconnected or not found. Will retry on next sync.');
+            unavailablePromise.catch((err: Error) => { // eslint-disable-line @typescript-eslint/no-floating-promises
+              this.error(`Error marking device unavailable: ${err.message}`);
+            });
+          }
+        }
       }
       this.operationInProgress = false;
     }
@@ -148,6 +175,7 @@ module.exports = class Rd200Device extends Homey.Device {
     }
     return result;
   }
+
   /**
    * onAdded is called when the user adds the device, called just after pairing.
    */
@@ -172,7 +200,7 @@ module.exports = class Rd200Device extends Homey.Device {
     newSettings: { [key: string]: boolean | string | number | undefined | null };
     changedKeys: string[];
   }): Promise<string | void> {
-    this.log("Rd200Device settings where changed");
+    this.log('Rd200Device settings where changed');
   }
 
   /**
@@ -219,9 +247,9 @@ module.exports = class Rd200Device extends Homey.Device {
       await peripheral.assertConnected();
       this.log('Discovering services and characteristics...');
       const services = await peripheral.discoverAllServicesAndCharacteristics();
-      this.log(`Discovered ${services.length} service(s): ${services.map(s => s.uuid).join(', ')}`);
+      this.log(`Discovered ${services.length} service(s): ${services.map((s) => s.uuid).join(', ')}`);
       this.log('Peripheral connected');
-      
+
       return peripheral;
     } catch (error) {
       this.error(`Failed to connect to device: ${error instanceof Error ? error.message : String(error)}`);
@@ -231,12 +259,10 @@ module.exports = class Rd200Device extends Homey.Device {
 
   private disconnectFromDevice(peripheral: BlePeripheral): void {
     if (!peripheral) return;
-    try {
-      this.log('Disconnecting from the device...');
-      peripheral.disconnect();
-    } catch (error) {
-      this.error(`Error disconnecting from the device: ${error instanceof Error ? error.message : String(error)}`);
-    }
+    this.log('Disconnecting from the device...');
+    // Note: peripheral.disconnect() may throw if peripheral is already disconnected.
+    // This error will be caught in the onSync finally block.
+    peripheral.disconnect();
   }
 
   private normalizeUuid(uuid: string): string {
@@ -251,23 +277,19 @@ module.exports = class Rd200Device extends Homey.Device {
     const normalizedServiceUuid = this.normalizeUuid(serviceUuid);
     const normalizedCharacteristicUuid = this.normalizeUuid(characteristicUuid);
 
-    const service = peripheral.services.find(candidate =>
-      this.normalizeUuid(candidate.uuid) === normalizedServiceUuid
-    );
+    const service = peripheral.services.find((candidate) => this.normalizeUuid(candidate.uuid) === normalizedServiceUuid);
 
     if (!service) {
       throw new Error(
-        `No service found with UUID ${serviceUuid}. Available: ${peripheral.services.map(s => s.uuid).join(', ')}`
+        `No service found with UUID ${serviceUuid}. Available: ${peripheral.services.map((s) => s.uuid).join(', ')}`,
       );
     }
 
-    const characteristic = service.characteristics.find(candidate =>
-      this.normalizeUuid(candidate.uuid) === normalizedCharacteristicUuid
-    );
+    const characteristic = service.characteristics.find((candidate) => this.normalizeUuid(candidate.uuid) === normalizedCharacteristicUuid);
 
     if (!characteristic) {
       throw new Error(
-        `No characteristic found with UUID ${characteristicUuid} on service ${service.uuid}. Available: ${service.characteristics.map(c => c.uuid).join(', ')}`
+        `No characteristic found with UUID ${characteristicUuid} on service ${service.uuid}. Available: ${service.characteristics.map((c) => c.uuid).join(', ')}`,
       );
     }
 
@@ -289,16 +311,17 @@ module.exports = class Rd200Device extends Homey.Device {
 
     try {
       // Await subscription so it is fully established before writing the command.
-      await statusCharacteristic.subscribeToNotifications((data: Buffer) => {
-        if (data.length > 0 && data[0] === COMMAND_STATUS_V2) {
-          resolveData(data);
-        }
-      });
-
-      timeoutHandle = setTimeout(
-        () => rejectData(new Error('Timed out waiting for V2/V3 status notification.')),
-        5000
+      await statusCharacteristic.subscribeToNotifications(
+        (data: Buffer) => {
+          if (data.length > 0 && data[0] === COMMAND_STATUS_V2) {
+            resolveData(data);
+          }
+        },
       );
+
+      timeoutHandle = setTimeout(() => {
+        rejectData(new Error('Timed out waiting for V2/V3 status notification.'));
+      }, 5000);
 
       await commandCharacteristic.write(Buffer.from([COMMAND_STATUS_V2]));
       return await dataPromise;
@@ -314,7 +337,6 @@ module.exports = class Rd200Device extends Homey.Device {
       }
     }
   }
-
 
   private async retryOperation(operation: () => Promise<void>, retries: number = 3, delay: number = 2000): Promise<void> {
     for (let i = 0; i < retries; i++) {

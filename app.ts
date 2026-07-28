@@ -11,4 +11,4 @@ module.exports = class RadonEyeApp extends Homey.App {
     this.log('RadonEyeApp has been initialized');
   }
 
-}
+};

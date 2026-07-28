@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+'use strict';
 
 const fs = require('fs');
 const path = require('path');
@@ -10,11 +10,15 @@ const compiledV2 = path.join(root, '.homeybuild', 'lib', 'rd200-v2.js');
 
 if (!fs.existsSync(compiledRd200) || !fs.existsSync(compiledV1) || !fs.existsSync(compiledV2)) {
   console.error('Missing compiled library output in .homeybuild/lib. Run "pnpm build" first.');
+  // eslint-disable-next-line no-process-exit
   process.exit(1);
 }
 
+// eslint-disable-next-line global-require, import/no-dynamic-require
 const rd200 = require(compiledRd200);
+// eslint-disable-next-line global-require, import/no-dynamic-require
 const v1 = require(compiledV1);
+// eslint-disable-next-line global-require, import/no-dynamic-require
 const v2 = require(compiledV2);
 
 function parseArgs(argv) {
@@ -32,13 +36,14 @@ function parseArgs(argv) {
 
 function fail(message) {
   console.error(message);
+  // eslint-disable-next-line no-process-exit
   process.exit(1);
 }
 
 const args = parseArgs(process.argv);
-const mode = args.mode;
-const hex = args.hex;
-const deviceName = args.deviceName;
+const { mode } = args;
+const { hex } = args;
+const { deviceName } = args;
 
 if (!mode || !hex) {
   fail('Usage: node tools/rd200-parse.js --mode <v1|v2v3> --hex <hex-payload> [--deviceName <name>]');
@@ -54,6 +59,7 @@ const payload = Buffer.from(sanitizedHex, 'hex');
 if (mode === 'v1') {
   const radon = v1.parseRadonValueV1(payload);
   console.log(JSON.stringify({ mode: 'v1', radon }));
+  // eslint-disable-next-line no-process-exit
   process.exit(0);
 }
 
@@ -72,7 +78,9 @@ if (mode === 'v2v3') {
     deviceInfo,
     extended,
   }));
+  // eslint-disable-next-line no-process-exit
   process.exit(0);
 }
 
+// eslint-disable-next-line no-process-exit
 fail('Unsupported mode. Use --mode v1 or --mode v2v3.');

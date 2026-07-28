@@ -24,14 +24,14 @@ module.exports = class Rd200Driver extends Homey.Driver {
 
     this.log(`BLE scan found ${advertisements.length} total devices`);
 
-    const matched = advertisements.filter(advertisement => {
+    const matched = advertisements.filter((advertisement) => {
       const name = advertisement.localName ?? '';
       return name.startsWith(RADONEYE_NAME_PREFIX);
     });
 
     this.log(`Discovered ${matched.length} RadonEye device(s)`);
 
-    return matched.map(advertisement => ({
+    return matched.map((advertisement) => ({
       name: advertisement.localName ?? advertisement.uuid,
       data: {
         id: advertisement.uuid,

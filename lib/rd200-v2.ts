@@ -1,6 +1,6 @@
-export const SERVICE_UUID_V2 = "00001523-0000-1000-8000-00805f9b34fb";
-export const COMMAND_UUID_V2 = "00001524-0000-1000-8000-00805f9b34fb";
-export const STATUS_UUID_V2 = "00001525-0000-1000-8000-00805f9b34fb";
+export const SERVICE_UUID_V2 = '00001523-0000-1000-8000-00805f9b34fb';
+export const COMMAND_UUID_V2 = '00001524-0000-1000-8000-00805f9b34fb';
+export const STATUS_UUID_V2 = '00001525-0000-1000-8000-00805f9b34fb';
 export const COMMAND_STATUS_V2 = 0x40;
 
 /**
@@ -8,7 +8,8 @@ export const COMMAND_STATUS_V2 = 0x40;
  * Full status (0x40): current radon is uint16 at offset 0x21 (33).
  */
 export function parseRadonValueV2V3(data: Buffer, isV3: boolean): number {
-  void isV3;
+  // isV3 parameter kept for future V3-specific handling
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   return data.readUInt16LE(33);
 }
 
@@ -46,9 +47,9 @@ export function parseDeviceInfoV2V3(data: Buffer, isV3: boolean): { serial: stri
       serial = readString(data, 2, 12).replace(/\0/g, '');
       model = readString(data, 15, 7).replace(/\0/g, '');
     } else {
-      const serialPart1 = readString(data, 8, 3);   // series
-      const serialPart2 = readString(data, 2, 6);   // date YYMMDD
-      const serialPart3 = readString(data, 11, 4);  // index
+      const serialPart1 = readString(data, 8, 3); // series
+      const serialPart2 = readString(data, 2, 6); // date YYMMDD
+      const serialPart3 = readString(data, 11, 4); // index
       serial = `${serialPart1}${serialPart2}${serialPart3}`.replace(/\0/g, '');
       model = readString(data, 16, 6).replace(/\0/g, '');
     }
