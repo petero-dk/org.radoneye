@@ -19,5 +19,8 @@
   },
   "2.0.2": {
     "en": "Fix bug introduced with v2.0.1 that caused long delays in value updates"
+  },
+  "2.0.3": {
+    "en": "Fix not updating radon level bug"
   }
 }
