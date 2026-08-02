@@ -153,7 +153,6 @@ module.exports = class Rd200Device extends Homey.Device {
           const errorMsg = disconnectError instanceof Error ? disconnectError.message : String(disconnectError);
           this.log(`Error during disconnect: ${errorMsg}`);
 
-          // Only mark as unavailable if sync actually failed
           if (!syncSucceeded && errorMsg.includes('Peripheral Not Found')) {
             this.error('Device disconnected unexpectedly, marking as offline.');
             const unavailablePromise = this.setUnavailable('Device disconnected or not found. Will retry on next sync.');
@@ -163,6 +162,8 @@ module.exports = class Rd200Device extends Homey.Device {
           }
         }
       }
+      // Always clear the cached advertisement so the next sync does a fresh BLE scan
+      this.advertisement = undefined;
       this.operationInProgress = false;
     }
   }
