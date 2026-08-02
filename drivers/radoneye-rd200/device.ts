@@ -1,12 +1,12 @@
 import Homey, { BleAdvertisement, BlePeripheral } from 'homey';
-import * as rd200 from '../../lib/rd200.ts';
+import * as rd200 from '../../lib/rd200';
 import {
   DATA_UUID_V1,
   parseRadonValueV1,
   SERVICE_UUID_V1,
   TRIGGER_DATA_V1,
   TRIGGER_UID_V1,
-} from '../../lib/rd200-v1.ts';
+} from '../../lib/rd200-v1';
 import {
   COMMAND_STATUS_V2,
   COMMAND_UUID_V2,
@@ -15,7 +15,7 @@ import {
   SERVICE_UUID_V2,
   STATUS_UUID_V2,
   parseDeviceInfoV2V3,
-} from '../../lib/rd200-v2.ts';
+} from '../../lib/rd200-v2';
 
 module.exports = class Rd200Device extends Homey.Device {
   private static SYNC_INTERVAL: number = 1000 * 60 * 5; // 5 minutes

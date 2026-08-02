@@ -2,8 +2,6 @@
   "extends": "@tsconfig/node16/tsconfig.json",
   "compilerOptions": {
     "allowJs": true,
-    "outDir": ".homeybuild/",
-    "allowImportingTsExtensions": true,
-    "noEmit": true
+    "outDir": ".homeybuild/"
   }
 }

@@ -4,7 +4,7 @@ import {
   SERVICE_UUID_V1,
   TRIGGER_DATA_V1,
   TRIGGER_UID_V1,
-} from './rd200-v1.ts';
+} from './rd200-v1';
 import {
   COMMAND_STATUS_V2,
   COMMAND_UUID_V2,
@@ -14,7 +14,7 @@ import {
   SERVICE_UUID_V2,
   STATUS_UUID_V2,
   V2V3ExtendedData,
-} from './rd200-v2.ts';
+} from './rd200-v2';
 
 export {
   DATA_UUID_V1,

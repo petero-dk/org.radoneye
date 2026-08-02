@@ -2,6 +2,9 @@
   "extends": "athom/homey-app",
   "rules": {
     "linebreak-style": "off",
-    "@typescript-eslint/no-floating-promises": "off"
+    "@typescript-eslint/no-floating-promises": "off",
+    "import/extensions": "off",
+    "import/no-unresolved": "off",
+    "node/no-missing-import": "off"
   }
 }
