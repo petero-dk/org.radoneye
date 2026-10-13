@@ -147,7 +147,7 @@ module.exports = class Rd200Device extends Homey.Device {
     } finally {
       if (peripheral) {
         try {
-          this.disconnectFromDevice(peripheral);
+          await this.disconnectFromDevice(peripheral);
         } catch (disconnectError) {
           // Handle disconnect errors (e.g., peripheral already disconnected)
           const errorMsg = disconnectError instanceof Error ? disconnectError.message : String(disconnectError);
@@ -258,12 +258,11 @@ module.exports = class Rd200Device extends Homey.Device {
     }
   }
 
-  private disconnectFromDevice(peripheral: BlePeripheral): void {
+  private async disconnectFromDevice(peripheral: BlePeripheral): Promise<void> {
     if (!peripheral) return;
     this.log('Disconnecting from the device...');
-    // Note: peripheral.disconnect() may throw if peripheral is already disconnected.
-    // This error will be caught in the onSync finally block.
-    peripheral.disconnect();
+    // Rejects with "Peripheral Not Found" if already disconnected; handled in onSync.
+    await peripheral.disconnect();
   }
 
   private normalizeUuid(uuid: string): string {
